@@ -5,16 +5,51 @@ namespace Gbf.Controllers
 {
     public class VehiculoController : Controller
     {
-        // 🔹 CONTEXTO
         private readonly ApplicationDbContext _context;
 
-        // 🔹 CONSTRUCTOR (inyección de dependencia)
         public VehiculoController(ApplicationDbContext context)
         {
             _context = context;
         }
 
-        // 🔹 CREAR VEHÍCULO
+        // 🔹 CREAR VEHÍCULO (DESDE MODAL)
+        [HttpPost]
+        public IActionResult Crear(Vehiculo vehiculo)
+        {
+            vehiculo.Patente = vehiculo.Patente.ToUpper().Trim().Replace("-", "");
+
+            // 🔴 VALIDACIÓN DE DUPLICIDAD ACTIVA
+            var existeActivo = _context.Vehiculos
+                .Any(v => v.Patente == vehiculo.Patente && v.Activo);
+
+            if (existeActivo)
+            {
+                TempData["Error"] = "Esta patente ya está activa en otra empresa.";
+
+                var empresaError = _context.Empresas.Find(vehiculo.EmpresaId);
+
+                return RedirectToAction("Perfil", "Empresa", new
+                {
+                    id = empresaError.Id,
+                    slug = empresaError.Slug
+                });
+            }
+
+            vehiculo.Activo = true;
+
+            _context.Vehiculos.Add(vehiculo);
+            _context.SaveChanges();
+
+            var empresa = _context.Empresas.Find(vehiculo.EmpresaId);
+
+            return RedirectToAction("Perfil", "Empresa", new
+            {
+                id = empresa.Id,
+                slug = empresa.Slug
+            });
+        }
+
+        // 🔹 IMPORTACIÓN MASIVA CSV
         [HttpPost]
         public async Task<IActionResult> ImportarCsv(IFormFile archivo, int empresaId)
         {
@@ -57,24 +92,35 @@ namespace Gbf.Controllers
                 registros.Add(valores);
             }
 
+            // 🔴 Si hay errores estructurales, detener
             if (errores.Any())
             {
                 TempData["Error"] = string.Join(" | ", errores);
+
                 return RedirectToAction("Perfil", "Empresa", new { id = empresaId });
             }
 
+            int agregados = 0;
+            int rechazados = 0;
+
             foreach (var valores in registros)
             {
-                var patente = valores[0].Trim().ToUpper().Replace("-", "");
+                var patente = valores[0].ToUpper().Trim().Replace("-", "");
                 var marca = valores[1].Trim();
                 var modelo = valores[2].Trim();
                 var color = valores[3].Trim();
                 var tipo = valores[4].Trim();
                 var anio = int.Parse(valores[5]);
 
-                // 🔴 VALIDAR DUPLICADOS
-                if (_context.Vehiculos.Any(v => v.Patente == patente && v.Activo))
+                // 🔴 VALIDACIÓN DE DUPLICIDAD
+                var existeActivo = _context.Vehiculos
+                    .Any(v => v.Patente == patente && v.Activo);
+
+                if (existeActivo)
+                {
+                    rechazados++;
                     continue;
+                }
 
                 var vehiculo = new Vehiculo
                 {
@@ -89,9 +135,18 @@ namespace Gbf.Controllers
                 };
 
                 _context.Vehiculos.Add(vehiculo);
+                agregados++;
             }
 
             _context.SaveChanges();
+
+            // 🔥 MENSAJES DE RESULTADO
+            TempData["Success"] = $"Carga finalizada: {agregados} vehículos agregados correctamente.";
+
+            if (rechazados > 0)
+            {
+                TempData["Warning"] = $"{rechazados} vehículos no fueron agregados. Si desconoce el motivo, contacte al administrador del sistema.";
+            }
 
             var empresa = _context.Empresas.Find(empresaId);
 
@@ -102,41 +157,58 @@ namespace Gbf.Controllers
             });
         }
 
+        // 🔹 DESACTIVAR
         public IActionResult Desactivar(int id)
         {
             var vehiculo = _context.Vehiculos.Find(id);
 
-            if (vehiculo != null)
+            if (vehiculo == null)
+                return RedirectToAction("Index", "Empresa");
+
+            vehiculo.Activo = false;
+            _context.SaveChanges();
+
+            var empresa = _context.Empresas.Find(vehiculo.EmpresaId);
+
+            return RedirectToAction("Perfil", "Empresa", new
             {
-                vehiculo.Activo = false;
-                _context.SaveChanges();
-
-                var empresa = _context.Empresas.Find(vehiculo.EmpresaId);
-
-                return RedirectToAction("Perfil", "Empresa", new
-                {
-                    id = empresa.Id,
-                    slug = empresa.Slug
-                });
-            }
-
-            return RedirectToAction("Index", "Empresa");
+                id = empresa.Id,
+                slug = empresa.Slug
+            });
         }
 
-        // 🔹 ACTIVAR VEHÍCULO
+        // 🔹 ACTIVAR (CON VALIDACIÓN CRÍTICA)
         public IActionResult Activar(int id)
         {
             var vehiculo = _context.Vehiculos.Find(id);
 
-            if (vehiculo != null)
-            {
-                vehiculo.Activo = true;
-                _context.SaveChanges();
+            if (vehiculo == null)
+                return RedirectToAction("Index", "Empresa");
 
-                return RedirectToAction("Perfil", "Empresa", new { id = vehiculo.EmpresaId });
+            // 🔴 VALIDACIÓN DE DUPLICIDAD
+            var existeActivo = _context.Vehiculos
+                .Any(v => v.Patente == vehiculo.Patente && v.Activo);
+
+            if (existeActivo)
+            {
+                TempData["Error"] = "No se puede activar. Esta patente ya está activa en otra empresa.";
+
+                return RedirectToAction("Perfil", "Empresa", new
+                {
+                    id = vehiculo.EmpresaId
+                });
             }
 
-            return RedirectToAction("Index", "Empresa");
+            vehiculo.Activo = true;
+            _context.SaveChanges();
+
+            var empresa = _context.Empresas.Find(vehiculo.EmpresaId);
+
+            return RedirectToAction("Perfil", "Empresa", new
+            {
+                id = empresa.Id,
+                slug = empresa.Slug
+            });
         }
     }
 }

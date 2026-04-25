@@ -1,6 +1,5 @@
 ﻿using Gbf.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
 
 namespace Gbf.Controllers
@@ -14,7 +13,7 @@ namespace Gbf.Controllers
             _context = context;
         }
 
-        // 🔹 LISTADO DE EMPRESAS (solo activas)
+        // 🔹 LISTADO
         public IActionResult Index()
         {
             var empresas = _context.Empresas
@@ -24,7 +23,7 @@ namespace Gbf.Controllers
             return View(empresas);
         }
 
-        // 🔹 PERFIL EMPRESA
+        // 🔹 PERFIL
         [Route("Empresa/{id:int}/{slug}")]
         public IActionResult Perfil(int id, string slug)
         {
@@ -34,39 +33,35 @@ namespace Gbf.Controllers
             if (empresa == null)
                 return NotFound();
 
-            // 🔹 Validación de slug
+            // 🔹 VALIDAR SLUG
             if (empresa.Slug != slug)
             {
-                return RedirectToAction("Perfil", new { id = empresa.Id, slug = empresa.Slug });
+                return RedirectToAction("Perfil", new
+                {
+                    id = empresa.Id,
+                    slug = empresa.Slug
+                });
             }
 
-            // 🔹 VEHÍCULOS ACTIVOS
-            var vehiculos = _context.Vehiculos
-                .Where(v => v.EmpresaId == id && v.Activo)
+            // 🔹 VEHÍCULOS
+            ViewBag.Vehiculos = _context.Vehiculos
+                .Where(v => v.EmpresaId == id)
                 .ToList();
 
-            ViewBag.Vehiculos = vehiculos;
-
-            // 🔹 CONDUCTORES ACTIVOS
-            var conductores = _context.Conductores
-                .Where(c => c.EmpresaId == id && c.Activo)
+            // 🔹 CONDUCTORES
+            ViewBag.Conductores = _context.Conductores
+                .Where(c => c.EmpresaId == id)
                 .ToList();
 
-            ViewBag.Conductores = conductores;
-
-            // 🔹 PIONETAS ACTIVOS
-            var pionetas = _context.Pionetas
-                .Where(p => p.EmpresaId == id && p.Activo)
+            // 🔹 PIONETAS
+            ViewBag.Pionetas = _context.Pionetas
+                .Where(p => p.EmpresaId == id)
                 .ToList();
-
-            ViewBag.Pionetas = pionetas;
 
             // 🔹 DOCUMENTOS
-            var documentos = _context.Documentos
+            ViewBag.Documentos = _context.Documentos
                 .Where(d => d.EmpresaId == id)
                 .ToList();
-
-            ViewBag.Documentos = documentos;
 
             return View(empresa);
         }
@@ -83,25 +78,29 @@ namespace Gbf.Controllers
             if (!Directory.Exists(carpeta))
                 Directory.CreateDirectory(carpeta);
 
-            var nombreArchivo = Guid.NewGuid().ToString() + Path.GetExtension(archivo.FileName);
-            var rutaCompleta = Path.Combine(carpeta, nombreArchivo);
+            var nombre = Guid.NewGuid() + Path.GetExtension(archivo.FileName);
+            var ruta = Path.Combine(carpeta, nombre);
 
-            using (var stream = new FileStream(rutaCompleta, FileMode.Create))
-            {
-                await archivo.CopyToAsync(stream);
-            }
+            using var stream = new FileStream(ruta, FileMode.Create);
+            await archivo.CopyToAsync(stream);
 
             var doc = new Documento
             {
                 Nombre = archivo.FileName,
-                Ruta = "/uploads/empresas/" + nombreArchivo,
+                Ruta = "/uploads/empresas/" + nombre,
                 EmpresaId = empresaId
             };
 
             _context.Documentos.Add(doc);
             _context.SaveChanges();
 
-            return RedirectToAction("Perfil", new { id = empresaId });
+            var empresa = _context.Empresas.Find(empresaId);
+
+            return RedirectToAction("Perfil", new
+            {
+                id = empresa.Id,
+                slug = empresa.Slug
+            });
         }
 
         // 🔹 CREAR EMPRESA + USUARIO
@@ -112,10 +111,10 @@ namespace Gbf.Controllers
 
             var empresa = new Empresa
             {
-                Nombre = Nombre,
-                Rut = Rut,
-                Email = Email,
-                Telefono = Telefono,
+                Nombre = Nombre.Trim(),
+                Rut = Rut.Trim(),
+                Email = Email.Trim(),
+                Telefono = Telefono.Trim(),
                 LogoUrl = "/img/default-avatar.png",
                 Activo = true,
                 Slug = slug
@@ -157,7 +156,7 @@ namespace Gbf.Controllers
 
             using var reader = new StreamReader(archivo.OpenReadStream());
 
-            bool primeraLinea = true;
+            bool primera = true;
             int fila = 1;
 
             while (!reader.EndOfStream)
@@ -165,9 +164,9 @@ namespace Gbf.Controllers
                 var linea = await reader.ReadLineAsync();
                 fila++;
 
-                if (primeraLinea)
+                if (primera)
                 {
-                    primeraLinea = false;
+                    primera = false;
                     continue;
                 }
 
@@ -194,26 +193,17 @@ namespace Gbf.Controllers
                 return RedirectToAction("Index");
             }
 
-            foreach (var valores in registros)
+            foreach (var v in registros)
             {
-                string nombre = valores[0].Trim();
-                string rut = valores[1].Trim();
-                string email = valores[2].Trim();
-                string telefono = valores[3].Trim();
-                string username = valores[4].Trim();
-                string password = valores[5].Trim();
-
-                string slug = nombre.ToLower().Replace(" ", "-");
-
                 var empresa = new Empresa
                 {
-                    Nombre = nombre,
-                    Rut = rut,
-                    Email = email,
-                    Telefono = telefono,
+                    Nombre = v[0].Trim(),
+                    Rut = v[1].Trim(),
+                    Email = v[2].Trim(),
+                    Telefono = v[3].Trim(),
                     LogoUrl = "/img/default-avatar.png",
                     Activo = true,
-                    Slug = slug
+                    Slug = v[0].ToLower().Replace(" ", "-")
                 };
 
                 _context.Empresas.Add(empresa);
@@ -222,10 +212,10 @@ namespace Gbf.Controllers
                 var usuario = new Usuario
                 {
                     Nombre = "Admin",
-                    Apellido = nombre,
-                    Email = email,
-                    Username = username,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                    Apellido = v[0],
+                    Email = v[2],
+                    Username = v[4],
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(v[5]),
                     Rol = "CLIENTE",
                     EmpresaId = empresa.Id,
                     Activo = true,
