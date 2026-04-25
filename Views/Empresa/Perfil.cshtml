@@ -1,0 +1,271 @@
+﻿@model Empresa
+
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">
+        @TempData["Error"]
+    </div>
+}
+
+
+<link rel="stylesheet" href="~/css/empresa-perfil.css" />
+
+<div class="container-fluid">
+
+    <!-- COVER -->
+    <div class="cover">
+        <img src="@Model.LogoUrl" class="avatar" />
+    </div>
+
+    <!-- HEADER -->
+    <div class="profile-header">
+        <h3>@Model.Nombre</h3>
+        <span class="badge @(Model.Activo ? "bg-success" : "bg-danger")">
+            @(Model.Activo ? "Activa" : "Inactiva")
+        </span>
+    </div>
+
+    <div class="row mt-4">
+
+        <!-- IZQUIERDA -->
+        <div class="col-md-4">
+
+            <div class="card mb-3 p-3">
+                <h5>Información</h5>
+                <p><strong>RUT:</strong> @Model.Rut</p>
+                <p><strong>Email:</strong> @Model.Email</p>
+                <p><strong>Teléfono:</strong> @Model.Telefono</p>
+            </div>
+
+            <div class="card p-3">
+                <h5>Documentos</h5>
+
+                <form method="post" enctype="multipart/form-data" asp-action="SubirArchivo">
+                    <input type="hidden" name="empresaId" value="@Model.Id" />
+                    <input type="file" name="archivo" class="form-control mb-2" />
+                    <button class="btn btn-primary btn-sm w-100">Subir</button>
+                </form>
+
+                <div class="mt-3">
+                    @foreach (var doc in ViewBag.Documentos)
+                    {
+                        <div>
+                            <a href="@doc.Ruta" target="_blank">@doc.Nombre</a>
+                        </div>
+                    }
+                </div>
+            </div>
+
+        </div>
+
+        <!-- DERECHA -->
+        <div class="col-md-8">
+
+            <!-- VEHICULOS -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Vehículos</span>
+
+                    <div class="d-flex gap-2">
+                        <!-- 🔹 AGREGAR -->
+                        <button class="btn btn-primary btn-sm"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalVehiculo">
+                            + Agregar
+                        </button>
+
+                        <!-- 🔹 CARGA MASIVA -->
+                        <button class="btn btn-success btn-sm"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalCargaMasiva">
+                            Carga Masiva
+                        </button>
+                    </div>
+                </div>
+
+                <ul class="list-group list-group-flush">
+                    @foreach (var v in ViewBag.Vehiculos)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                            <span>
+                                <strong>@v.Patente</strong> - @v.Marca @v.Modelo
+                            </span>
+
+                            <div>
+                                <span class="badge @(v.Activo ? "bg-success" : "bg-secondary") me-2">
+                                    @(v.Activo ? "Activo" : "Inactivo")
+                                </span>
+
+                                @if (v.Activo)
+                                {
+                                    <a asp-controller="Vehiculo"
+                                       asp-action="Desactivar"
+                                       asp-route-id="@v.Id"
+                                       class="btn btn-danger btn-sm">
+                                        Desactivar
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a asp-controller="Vehiculo"
+                                       asp-action="Activar"
+                                       asp-route-id="@v.Id"
+                                       class="btn btn-success btn-sm">
+                                        Activar
+                                    </a>
+                                }
+                            </div>
+
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <!-- CONDUCTORES -->
+            <div class="card mb-3">
+                <div class="card-header">Conductores</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var c in ViewBag.Conductores)
+                    {
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>@c.Id</span>
+                            <span class="badge @(c.Activo ? "bg-success" : "bg-secondary")">
+                                @(c.Activo ? "Activo" : "Inactivo")
+                            </span>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <!-- PIONETAS -->
+            <div class="card mb-3">
+                <div class="card-header">Pionetas</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var p in ViewBag.Pionetas)
+                    {
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>@p.Id</span>
+                            <span class="badge @(p.Activo ? "bg-success" : "bg-secondary")">
+                                @(p.Activo ? "Activo" : "Inactivo")
+                            </span>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- 🔥 MODAL VEHÍCULO -->
+<div class="modal fade" id="modalVehiculo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form asp-controller="Vehiculo" asp-action="Crear" method="post">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar Vehículo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <!-- 🔹 EMPRESA ID -->
+                    <input type="hidden" name="EmpresaId" value="@Model.Id" />
+
+                    <div class="mb-2">
+                        <label>Patente</label>
+                        <input type="text" name="Patente" class="form-control" required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Marca</label>
+                        <input type="text" name="Marca" class="form-control" required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Modelo</label>
+                        <input type="text" name="Modelo" class="form-control" required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Color</label>
+                        <input type="text" name="Color" class="form-control" />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Tipo</label>
+                        <input type="text" name="Tipo" class="form-control" />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Año</label>
+                        <input type="number" name="Año" class="form-control" />
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Guardar</button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modalCargaMasiva" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">Carga Masiva de Vehículos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <!-- 🔹 DESCARGA PLANTILLA -->
+                <div class="mb-3">
+                    <label class="form-label">Descargar plantilla</label>
+
+                    <a href="~/plantillas/plantilla_vehiculos(Vehiculos).xlsx"
+                       class="btn btn-outline-primary w-100"
+                       download="plantilla_vehiculos(Vehiculos).xlsx">
+                        Descargar archivo ejemplo
+                    </a>
+                </div>
+
+                <hr />
+
+                <!-- 🔹 SUBIR ARCHIVO -->
+                <form method="post"
+                      enctype="multipart/form-data"
+                      asp-controller="Vehiculo"
+                      asp-action="ImportarCsv">
+
+                    <input type="hidden" name="empresaId" value="@Model.Id" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar archivo CSV</label>
+                        <input type="file" name="archivo" class="form-control" required />
+                    </div>
+
+                    <button class="btn btn-success w-100">
+                        Subir y procesar
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+    </div>
+</div>

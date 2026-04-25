@@ -1,0 +1,180 @@
+﻿@{
+    Layout = null;
+    var nombre = ViewBag.Nombre ?? "Usuario";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Dashboard</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <!-- CSS PROPIO -->
+    <link rel="stylesheet" href="~/css/dashboard.css" />
+</head>
+
+<body>
+
+    <div class="d-flex">
+
+        <!-- SIDEBAR -->
+        <div class="sidebar p-3 d-flex flex-column" id="sidebar">
+
+            <button class="btn btn-sm btn-light mb-3 w-100" onclick="toggleSidebar()">
+                <i class="bi bi-list"></i>
+            </button>
+            <ul class="nav flex-column">
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Empresa" asp-action="Index">
+                        <i class="bi bi-building"></i>
+                        <span>Empresas</span>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-people"></i>
+                        <span>Usuarios</span>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-file-earmark-text"></i>
+                        <span>Informes</span>
+                    </a>
+                </li>
+
+            </ul>
+
+            <div class="mt-auto">
+                <form asp-controller="Login" asp-action="Logout" method="post">
+                    <button class="btn btn-danger w-100 mt-3 d-flex align-items-center justify-content-center">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span class="ms-2">Salir</span>
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content flex-grow-1 p-4 bg-light">
+
+            <h4 class="mb-4">Bienvenido, @nombre</h4>
+
+            <!-- CARDS -->
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card text-center p-3">
+                        <h6>Empresas Activas</h6>
+                        <h3>@ViewBag.Empresas</h3>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center p-3">
+                        <h6>Vehículos Activos</h6>
+                        <h3>@ViewBag.Vehiculos</h3>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center p-3">
+                        <h6>Incidentes</h6>
+                        <h3>@ViewBag.Incidentes</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAPA -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card p-2">
+                        <div id="map" style="height:500px;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById("sidebar").classList.toggle("collapsed");
+        }
+  
+            // Coordenadas base
+            const origen = { lat: -33.401, lng: -70.545 }; // Las Condes
+            const destino = { lat: -33.456, lng: -70.597 }; // Ñuñoa
+
+            var map = L.map('map').setView(origen, 12);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+
+            // Simulación de vehículos
+            var vehiculos = [
+                { id: 1, progress: 0 },
+                { id: 2, progress: 0.2 },
+                { id: 3, progress: 0.4 }
+            ];
+
+            var markers = [];
+
+            function interpolar(p) {
+                return {
+                    lat: origen.lat + (destino.lat - origen.lat) * p,
+                    lng: origen.lng + (destino.lng - origen.lng) * p
+                };
+            }
+
+            function cargarVehiculos() {
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+
+                vehiculos.forEach(v => {
+                    let pos = interpolar(v.progress);
+
+                    var marker = L.marker([pos.lat, pos.lng])
+                        .addTo(map)
+                        .bindPopup("Vehículo " + v.id);
+
+                    markers.push(marker);
+                });
+            }
+
+            cargarVehiculos();
+
+            // Movimiento progresivo hacia destino
+            setInterval(() => {
+                vehiculos.forEach(v => {
+                    v.progress += 0.01;
+                    if (v.progress > 1) v.progress = 1;
+                });
+
+                cargarVehiculos();
+            }, 1000);
+    
+    </script>
+
+</body>
+</html>
