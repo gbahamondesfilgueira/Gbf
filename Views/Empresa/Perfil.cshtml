@@ -1,4 +1,5 @@
 ﻿@model Empresa
+
 @if (TempData["Success"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -22,15 +23,9 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
+
 @{
     Layout = "~/Views/Shared/_Layout.cshtml";
-}
-
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger">
-        @TempData["Error"]
-    </div>
 }
 
 <link rel="stylesheet" href="~/css/empresa-perfil.css" />
@@ -62,25 +57,6 @@
                 <p><strong>Teléfono:</strong> @Model.Telefono</p>
             </div>
 
-            <div class="card p-3">
-                <h5>Documentos</h5>
-
-                <form method="post" enctype="multipart/form-data" asp-action="SubirArchivo">
-                    <input type="hidden" name="empresaId" value="@Model.Id" />
-                    <input type="file" name="archivo" class="form-control mb-2" />
-                    <button class="btn btn-primary btn-sm w-100">Subir</button>
-                </form>
-
-                <div class="mt-3">
-                    @foreach (var doc in ViewBag.Documentos)
-                    {
-                        <div>
-                            <a href="@doc.Ruta" target="_blank">@doc.Nombre</a>
-                        </div>
-                    }
-                </div>
-            </div>
-
         </div>
 
         <!-- DERECHA -->
@@ -89,38 +65,29 @@
             <!-- VEHICULOS -->
             <div class="card mb-3">
 
-                <!-- HEADER -->
                 <div class="card-header d-flex justify-content-between align-items-center">
 
-                    <!-- 🔹 BOTÓN COLAPSABLE (CLAVE) -->
                     <button class="btn btn-link text-decoration-none p-0"
                             type="button"
                             data-bs-toggle="collapse"
-                            data-bs-target="#vehiculosCollapse"
-                            aria-expanded="true">
-
+                            data-bs-target="#vehiculosCollapse">
                         <strong>Vehículos</strong>
                     </button>
 
-                    <!-- 🔹 BOTONES -->
                     <div class="d-flex gap-2">
-                        <button class="btn btn-primary btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalVehiculo">
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalVehiculo">
                             + Agregar
                         </button>
 
-                        <button class="btn btn-success btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalCargaMasiva">
+                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCargaMasiva">
                             Carga Masiva
                         </button>
                     </div>
 
                 </div>
 
-                <!-- CONTENIDO -->
-                <div id="vehiculosCollapse" class="collapse show">
+                <!-- 🔴 AHORA CERRADO -->
+                <div id="vehiculosCollapse" class="collapse">
 
                     <ul class="list-group list-group-flush">
                         @foreach (var v in ViewBag.Vehiculos)
@@ -138,21 +105,15 @@
 
                                     @if (v.Activo)
                                     {
-                                        <a asp-controller="Vehiculo"
-                                           asp-action="Desactivar"
-                                           asp-route-id="@v.Id"
-                                           class="btn btn-danger btn-sm">
+                                        <button onclick="toggleVehiculo(@v.Id, true)" class="btn btn-danger btn-sm">
                                             Desactivar
-                                        </a>
+                                        </button>
                                     }
                                     else
                                     {
-                                        <a asp-controller="Vehiculo"
-                                           asp-action="Activar"
-                                           asp-route-id="@v.Id"
-                                           class="btn btn-success btn-sm">
+                                        <button onclick="toggleVehiculo(@v.Id, false)" class="btn btn-success btn-sm">
                                             Activar
-                                        </a>
+                                        </button>
                                     }
                                 </div>
 
@@ -164,86 +125,65 @@
 
             </div>
 
-
             <!-- CONDUCTORES -->
-
             <div class="card mb-3">
 
-                <!-- HEADER -->
                 <div class="card-header d-flex justify-content-between align-items-center">
 
-                    <!-- 🔹 BOTÓN COLAPSABLE -->
                     <button class="btn btn-link text-decoration-none p-0"
                             type="button"
                             data-bs-toggle="collapse"
-                            data-bs-target="#conductoresCollapse"
-                            aria-expanded="true">
-
+                            data-bs-target="#conductoresCollapse">
                         <strong>Conductores</strong>
                     </button>
 
-                    <!-- 🔹 BOTONES -->
                     <div class="d-flex gap-2">
-                        <button class="btn btn-primary btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalConductor">
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalConductor">
                             + Agregar
                         </button>
 
-                        <button class="btn btn-success btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalCargaConductores">
+                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCargaConductores">
                             Carga Masiva
                         </button>
                     </div>
 
                 </div>
 
-                <!-- CONTENIDO -->
-                <div id="conductoresCollapse" class="collapse show">
+                <!-- 🔴 AHORA CERRADO -->
+                <div id="conductoresCollapse" class="collapse">
 
                     <ul class="list-group list-group-flush">
                         @foreach (var c in ViewBag.Conductores)
                         {
                             <li class="list-group-item d-flex justify-content-between align-items-center">
 
-                                <!-- 🔹 INFO -->
                                 <div class="d-flex align-items-center gap-3">
                                     <img src="@(c.FotoPerfilUrl ?? "/img/default-avatar.png")"
                                          style="width:45px;height:45px;border-radius:50%;object-fit:cover" />
 
                                     <div>
                                         <strong>@c.Nombre @c.Apellido</strong><br />
-                                        <small class="text-muted">@c.Rut</small>
+                                        <small>@c.Rut</small>
                                     </div>
                                 </div>
 
-                                <!-- 🔹 ESTADO + ACCIONES -->
-                                <div class="d-flex align-items-center gap-2">
-
-                                    <span class="badge @(c.Activo ? "bg-success" : "bg-secondary")">
+                                <div>
+                                    <span class="badge @(c.Activo ? "bg-success" : "bg-secondary") me-2">
                                         @(c.Activo ? "Activo" : "Inactivo")
                                     </span>
 
                                     @if (c.Activo)
                                     {
-                                        <a asp-controller="Conductor"
-                                           asp-action="Desactivar"
-                                           asp-route-id="@c.Id"
-                                           class="btn btn-danger btn-sm">
+                                        <button onclick="toggleConductor(@c.Id, true)" class="btn btn-danger btn-sm">
                                             Desactivar
-                                        </a>
+                                        </button>
                                     }
                                     else
                                     {
-                                        <a asp-controller="Conductor"
-                                           asp-action="Activar"
-                                           asp-route-id="@c.Id"
-                                           class="btn btn-success btn-sm">
+                                        <button onclick="toggleConductor(@c.Id, false)" class="btn btn-success btn-sm">
                                             Activar
-                                        </a>
+                                        </button>
                                     }
-
                                 </div>
 
                             </li>
@@ -257,37 +197,29 @@
             <!-- PIONETAS -->
             <div class="card mb-3">
 
-                <!-- HEADER -->
                 <div class="card-header d-flex justify-content-between align-items-center">
 
-                    <!-- BOTÓN COLAPSABLE -->
                     <button class="btn btn-link text-decoration-none p-0"
                             type="button"
                             data-bs-toggle="collapse"
                             data-bs-target="#pionetasCollapse">
-
                         <strong>Pionetas</strong>
                     </button>
 
-                    <!-- BOTONES -->
                     <div class="d-flex gap-2">
-                        <button class="btn btn-primary btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalPioneta">
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalPioneta">
                             + Agregar
                         </button>
 
-                        <button class="btn btn-success btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalCargaPionetas">
+                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCargaPionetas">
                             Carga Masiva
                         </button>
                     </div>
 
                 </div>
 
-                <!-- CONTENIDO -->
-                <div id="pionetasCollapse" class="collapse show">
+                <!-- 🔴 AHORA CERRADO -->
+                <div id="pionetasCollapse" class="collapse">
 
                     <ul class="list-group list-group-flush">
                         @foreach (var p in ViewBag.Pionetas)
@@ -298,9 +230,24 @@
                                     <strong>@p.Nombre @p.Apellido</strong> - @p.Rut
                                 </span>
 
-                                <span class="badge @(p.Activo ? "bg-success" : "bg-secondary")">
-                                    @(p.Activo ? "Activo" : "Inactivo")
-                                </span>
+                                <div>
+                                    <span class="badge @(p.Activo ? "bg-success" : "bg-secondary") me-2">
+                                        @(p.Activo ? "Activo" : "Inactivo")
+                                    </span>
+
+                                    @if (p.Activo)
+                                    {
+                                        <button onclick="togglePioneta(@p.Id, true)" class="btn btn-danger btn-sm">
+                                            Desactivar
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button onclick="togglePioneta(@p.Id, false)" class="btn btn-success btn-sm">
+                                            Activar
+                                        </button>
+                                    }
+                                </div>
 
                             </li>
                         }
@@ -315,6 +262,26 @@
     </div>
 
 </div>
+
+<script>
+    async function toggleVehiculo(id, activo) {
+        const url = activo ? `/Vehiculo/Desactivar/${id}` : `/Vehiculo/Activar/${id}`;
+        await fetch(url);
+        location.reload();
+    }
+
+    async function toggleConductor(id, activo) {
+        const url = activo ? `/Conductor/Desactivar/${id}` : `/Conductor/Activar/${id}`;
+        await fetch(url);
+        location.reload();
+    }
+
+    async function togglePioneta(id, activo) {
+        const url = activo ? `/Pioneta/Desactivar/${id}` : `/Pioneta/Activar/${id}`;
+        await fetch(url);
+        location.reload();
+    }
+</script>
 
 <!-- MODAL CONDUCTOR -->
 <div class="modal fade" id="modalConductor" tabindex="-1">

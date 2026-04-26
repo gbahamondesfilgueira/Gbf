@@ -1,4 +1,5 @@
-﻿@model List<Empresa>
+﻿@* @model List<Empresa>
+
 
 <div class="container mt-4">
 
@@ -168,4 +169,228 @@
 </div>
 
 <!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script> *@
+@model List<Empresa>
+
+<div class="container mt-4">
+
+    <!-- 🔥 MENSAJES -->
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Warning"] != null)
+    {
+        <div class="alert alert-warning alert-dismissible fade show">
+            @TempData["Warning"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Empresas</h4>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importarModal">
+                <i class="bi bi-file-earmark-arrow-up"></i> Carga Masiva
+            </button>
+
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearEmpresaModal">
+                <i class="bi bi-plus"></i> Crear Empresa
+            </button>
+        </div>
+    </div>
+
+
+    <!-- LISTADO -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var e in Model)
+                    {
+                        <tr class="@(e.Activo ? "" : "table-secondary")">
+
+                            <td>@e.Nombre</td>
+
+                            <td>
+                                <span class="badge @(e.Activo ? "bg-success" : "bg-danger")">
+                                    @(e.Activo ? "Activa" : "Inactiva")
+                                </span>
+                            </td>
+
+                            <td class="d-flex gap-2">
+
+                                <!-- VER -->
+                                <a asp-controller="Empresa"
+                                   asp-action="Perfil"
+                                   asp-route-id="@e.Id"
+                                   asp-route-slug="@e.Slug"
+                                   class="btn btn-sm btn-outline-primary">
+                                    Ver
+                                </a>
+
+                                <!-- ACTIVAR / DESACTIVAR -->
+                                @if (e.Activo)
+                                {
+                                    <a asp-controller="Empresa"
+                                       asp-action="Desactivar"
+                                       asp-route-id="@e.Id"
+                                       class="btn btn-sm btn-danger">
+                                        Desactivar
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a asp-controller="Empresa"
+                                       asp-action="Activar"
+                                       asp-route-id="@e.Id"
+                                       class="btn btn-sm btn-success">
+                                        Activar
+                                    </a>
+                                }
+
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- MODAL CREAR EMPRESA -->
+<div class="modal fade" id="crearEmpresaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form asp-action="Crear" method="post">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Crear Empresa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-2">
+                        <label>Nombre Empresa</label>
+                        <input name="Nombre" class="form-control" required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>RUT Empresa</label>
+                        <input name="Rut" class="form-control" required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Correo Contacto</label>
+                        <input name="Email" type="email" class="form-control" required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Usuario</label>
+                        <input name="Username" class="form-control" required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Contraseña</label>
+                        <input name="Password" type="password" class="form-control" required />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Teléfono</label>
+                        <input name="Telefono" class="form-control" />
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success">Guardar</button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- MODAL IMPORTAR -->
+<div class="modal fade" id="importarModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <form asp-action="ImportarCsv" method="post" enctype="multipart/form-data">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Importar Empresas (CSV)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-3 text-center">
+                        <a href="/plantillas/plantilla_empresas.csv"
+                           class="btn btn-outline-primary btn-sm"
+                           download>
+                            Descargar plantilla
+                        </a>
+                    </div>
+
+                    <p class="text-muted small text-center">
+                        Descargue la plantilla, complétela en Excel y guárdela como <strong>CSV</strong>.
+                    </p>
+
+                    <input type="file" name="archivo" class="form-control" accept=".csv" required />
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary w-100">
+                        Subir Archivo
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- LOADER -->
+<div id="loaderOverlay">
+    <div class="loader-content">
+        <div class="spinner"></div>
+        <p>Cargando...</p>
+    </div>
+</div>
+
+
+<!-- JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

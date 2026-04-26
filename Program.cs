@@ -3,38 +3,91 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
-// 🔹 Conexión a base de datos
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// 🔹 Obtener cadenas
+var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+var localConnection = builder.Configuration.GetConnectionString("LocalConnection");
 
+// 🔹 Método para probar conexión
+bool ProbarConexion(string connectionString)
+{
+    try
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+        return context.Database.CanConnect();
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+// 🔹 Selección de conexión
+string connectionFinal = null;
+
+if (ProbarConexion(defaultConnection))
+{
+    connectionFinal = defaultConnection;
+    Console.WriteLine("✔ Conectado a DefaultConnection");
+}
+else if (ProbarConexion(localConnection))
+{
+    connectionFinal = localConnection;
+    Console.WriteLine("✔ Conectado a LocalConnection");
+}
+else
+{
+    Console.WriteLine("❌ ERROR: No se pudo conectar a ninguna base de datos.");
+    throw new Exception("No hay conexión a base de datos configurada correctamente.");
+}
+
+// 🔹 DB CONTEXT FINAL
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionFinal));
 
 // 🔹 MVC
 builder.Services.AddControllersWithViews();
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath = "/Login/Index";
     });
 
-
 var app = builder.Build();
+
+
+// 🔹 CREACIÓN DB
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-    //context.Database.EnsureDeleted();
-    context.Database.EnsureCreated();
+    if (app.Environment.IsDevelopment())
+    {
+        Console.WriteLine("⚠️ MODO DESARROLLO: Eliminando y recreando base de datos...");
+
+        //context.Database.EnsureDeleted();   // 🔴 elimina todo
+        context.Database.EnsureCreated();   // 🟢 crea desde cero
+
+        Console.WriteLine("✔ Base de datos recreada correctamente.");
+    }
+    else
+    {
+        // 🔹 Producción o entorno normal
+        context.Database.EnsureCreated();
+    }
 }
 
-// 🔹 Seed de usuario admin
+
+// 🔹 SEED ADMIN
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-    context.Database.EnsureCreated();
 
     if (!context.Usuarios.Any())
     {
@@ -57,7 +110,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// 🔹 Pipeline
+
+// 🔹 PIPELINE
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -66,11 +120,12 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 
 app.UseRouting();
-app.UseAuthentication();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
-// 🔹 Rutas
+
+// 🔹 RUTAS
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Login}/{action=Index}/{id?}");

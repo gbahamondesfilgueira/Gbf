@@ -17,7 +17,8 @@ namespace Gbf.Controllers
         public IActionResult Index()
         {
             var empresas = _context.Empresas
-                .Where(e => e.Activo)
+                .OrderByDescending(e => e.Activo) // activas primero
+                .ThenBy(e => e.Nombre)
                 .ToList();
 
             return View(empresas);
@@ -107,14 +108,32 @@ namespace Gbf.Controllers
         [HttpPost]
         public IActionResult Crear(string Nombre, string Rut, string Email, string Username, string Password, string Telefono)
         {
+            // 🔹 NORMALIZACIÓN
+            Nombre = Nombre.Trim();
+            Rut = Rut.ToUpper().Trim();
+            Email = Email.Trim();
+            Telefono = Telefono.Trim();
+            Username = Username.Trim();
+
             var slug = Nombre.ToLower().Replace(" ", "-");
+
+            // 🔴 VALIDACIÓN DUPLICIDAD
+            var existeActivo = _context.Empresas
+                .Any(e => e.Rut == Rut && e.Activo);
+
+            if (existeActivo)
+            {
+                TempData["Error"] = "Esta empresa ya está registrada.";
+
+                return RedirectToAction("Index");
+            }
 
             var empresa = new Empresa
             {
-                Nombre = Nombre.Trim(),
-                Rut = Rut.Trim(),
-                Email = Email.Trim(),
-                Telefono = Telefono.Trim(),
+                Nombre = Nombre,
+                Rut = Rut,
+                Email = Email,
+                Telefono = Telefono,
                 LogoUrl = "/img/default-avatar.png",
                 Activo = true,
                 Slug = slug
@@ -140,6 +159,8 @@ namespace Gbf.Controllers
 
             _context.Usuarios.Add(usuario);
             _context.SaveChanges();
+
+            TempData["Success"] = "Empresa registrada correctamente.";
 
             return RedirectToAction("Index");
         }
@@ -187,48 +208,136 @@ namespace Gbf.Controllers
                 registros.Add(valores);
             }
 
+            // 🔴 ERRORES ESTRUCTURALES
             if (errores.Any())
             {
                 TempData["Error"] = string.Join(" | ", errores);
                 return RedirectToAction("Index");
             }
 
+            int agregados = 0;
+            int rechazados = 0;
+
+            var nuevasEmpresas = new List<Empresa>();
+            var nuevosUsuarios = new List<Usuario>();
+
             foreach (var v in registros)
             {
-                var empresa = new Empresa
+                try
                 {
-                    Nombre = v[0].Trim(),
-                    Rut = v[1].Trim(),
-                    Email = v[2].Trim(),
-                    Telefono = v[3].Trim(),
-                    LogoUrl = "/img/default-avatar.png",
-                    Activo = true,
-                    Slug = v[0].ToLower().Replace(" ", "-")
-                };
+                    // 🔹 NORMALIZACIÓN
+                    var nombre = v[0].Trim();
+                    var rut = v[1].ToUpper().Trim();
+                    var email = v[2].Trim();
+                    var telefono = v[3].Trim();
+                    var username = v[4].Trim();
+                    var password = v[5].Trim();
 
-                _context.Empresas.Add(empresa);
-                _context.SaveChanges();
+                    // 🔴 VALIDACIÓN DUPLICIDAD (MISMA QUE CREAR)
+                    var existeActivo = _context.Empresas
+                        .Any(e => e.Rut == rut && e.Activo);
 
-                var usuario = new Usuario
+                    if (existeActivo)
+                    {
+                        rechazados++;
+                        continue;
+                    }
+
+                    // 🔴 VALIDACIÓN BÁSICA EXTRA (evita datos basura)
+                    if (string.IsNullOrWhiteSpace(nombre) || string.IsNullOrWhiteSpace(rut))
+                    {
+                        rechazados++;
+                        continue;
+                    }
+
+                    var empresa = new Empresa
+                    {
+                        Nombre = nombre,
+                        Rut = rut,
+                        Email = email,
+                        Telefono = telefono,
+                        LogoUrl = "/img/default-avatar.png",
+                        Activo = true,
+                        Slug = nombre.ToLower().Replace(" ", "-")
+                    };
+
+                    nuevasEmpresas.Add(empresa);
+
+                    var usuario = new Usuario
+                    {
+                        Nombre = "Admin",
+                        Apellido = nombre,
+                        Email = email,
+                        Username = username,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                        Rol = "CLIENTE",
+                        Activo = true,
+                        Bloqueado = false,
+                        FechaCreacion = DateTime.Now,
+                        IntentosFallidos = 0
+                    };
+
+                    // ⚠ Se asigna EmpresaId después de guardar
+                    nuevosUsuarios.Add(usuario);
+
+                    agregados++;
+                }
+                catch
                 {
-                    Nombre = "Admin",
-                    Apellido = v[0],
-                    Email = v[2],
-                    Username = v[4],
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(v[5]),
-                    Rol = "CLIENTE",
-                    EmpresaId = empresa.Id,
-                    Activo = true,
-                    Bloqueado = false,
-                    FechaCreacion = DateTime.Now,
-                    IntentosFallidos = 0
-                };
-
-                _context.Usuarios.Add(usuario);
-                _context.SaveChanges();
+                    rechazados++;
+                }
             }
 
-            TempData["Success"] = "Importación exitosa";
+            // 🔹 GUARDAR EMPRESAS
+            _context.Empresas.AddRange(nuevasEmpresas);
+            _context.SaveChanges();
+
+            // 🔹 ASIGNAR EMPRESA A USUARIOS
+            for (int i = 0; i < nuevasEmpresas.Count; i++)
+            {
+                nuevosUsuarios[i].EmpresaId = nuevasEmpresas[i].Id;
+            }
+
+            _context.Usuarios.AddRange(nuevosUsuarios);
+            _context.SaveChanges();
+
+            // 🔥 MENSAJES CONSISTENTES
+            TempData["Success"] = $"Carga finalizada: {agregados} empresas registradas correctamente.";
+
+            if (rechazados > 0)
+            {
+                TempData["Warning"] = $"{rechazados} empresas no fueron agregadas. Si desconoce el motivo, contacte al administrador del sistema.";
+            }
+
+            return RedirectToAction("Index");
+        }
+        public IActionResult Desactivar(int id)
+        {
+            var empresa = _context.Empresas.Find(id);
+
+            if (empresa == null)
+                return RedirectToAction("Index");
+
+            empresa.Activo = false;
+            _context.SaveChanges();
+
+            TempData["Success"] = "Empresa desactivada correctamente.";
+
+            return RedirectToAction("Index");
+        }
+
+        public IActionResult Activar(int id)
+        {
+            var empresa = _context.Empresas.Find(id);
+
+            if (empresa == null)
+                return RedirectToAction("Index");
+
+            empresa.Activo = true;
+            _context.SaveChanges();
+
+            TempData["Success"] = "Empresa activada correctamente.";
+
             return RedirectToAction("Index");
         }
     }
